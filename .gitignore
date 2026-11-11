@@ -1,0 +1,14 @@
+# Credenciales y entorno local
+.streamlit/secrets.toml
+
+# Entorno virtual
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Empaquetado
+*.zip
