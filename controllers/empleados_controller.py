@@ -6,6 +6,7 @@ from config import USUARIO_EMPLEADO
 from controllers.comun import (
     ErrorBD,
     a_datetime,
+    demasiado_largo,
     email_valido,
     entero_o_none,
     fecha_hora_actual,
@@ -47,16 +48,33 @@ def validar_empleado(datos):
 
     if texto(datos.get("strNombre")) == "":
         errores["strNombre"] = "El nombre es obligatorio."
+    elif demasiado_largo(datos.get("strNombre"), 50):
+        errores["strNombre"] = "El nombre no puede superar 50 caracteres."
 
     documento = texto(datos.get("NumDocumento"))
     if documento == "":
         errores["NumDocumento"] = "El documento es obligatorio."
     elif not documento.isdigit():
         errores["NumDocumento"] = "El documento debe ser numérico."
+    elif demasiado_largo(documento, 20):
+        errores["NumDocumento"] = "El documento no puede superar 20 dígitos."
 
     correo = texto(datos.get("StrEmail"))
     if correo and not email_valido(correo):
         errores["StrEmail"] = "El correo no tiene un formato válido."
+    elif demasiado_largo(correo, 50):
+        errores["StrEmail"] = "El correo no puede superar 50 caracteres."
+
+    if demasiado_largo(datos.get("StrDireccion"), 100):
+        errores["StrDireccion"] = "La dirección no puede superar 100 caracteres."
+
+    if demasiado_largo(datos.get("StrTelefono"), 50):
+        errores["StrTelefono"] = "El teléfono no puede superar 50 caracteres."
+
+    if demasiado_largo(datos.get("strDatosAdicionales"), 2000):
+        errores["strDatosAdicionales"] = (
+            "Los datos adicionales no pueden superar 2000 caracteres."
+        )
 
     return errores
 

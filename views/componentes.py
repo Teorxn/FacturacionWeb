@@ -15,7 +15,17 @@ def escapar(valor):
     """Escapa texto para que se pueda insertar con seguridad en HTML."""
     if valor is None:
         return ""
+    if isinstance(valor, HTMLSeguro):
+        return str(valor)
     return html.escape(str(valor), quote=True)
+
+
+class HTMLSeguro(str):
+    """Marca un fragmento HTML construido por la propia aplicación.
+
+    `tabla()` escapa todo por defecto y solo respeta este tipo. Así un dato
+    de la base de datos no puede convertirse en HTML/JavaScript.
+    """
 
 
 def url(page, **params):
@@ -30,11 +40,18 @@ def param(nombre, defecto=None):
 
     Si la app se está ejecutando con parámetros (navegación real), manda la URL.
     Si no hay parámetros, se usa session_state, lo que permite probar las
-    pantallas con AppTest.
+    pantallas con AppTest. El valor se limita en tamaño para evitar abusos.
     """
     if st.query_params:
-        return st.query_params.get(nombre, defecto)
-    return st.session_state.get(nombre, defecto)
+        valor = st.query_params.get(nombre, defecto)
+    else:
+        valor = st.session_state.get(nombre, defecto)
+
+    if isinstance(valor, (list, tuple)):
+        valor = valor[0] if valor else defecto
+    if valor is None:
+        return None
+    return str(valor)[:200]
 
 
 def ir_a(page, **params):
@@ -78,10 +95,16 @@ def titulo(texto):
 
 def enlace(texto, href, clase="btn btn-secondary"):
     """Devuelve un enlace con apariencia de botón."""
-    return (
-        f'<a class="{clase}" href="{html.escape(href, quote=True)}" '
+    return HTMLSeguro(
+        f'<a class="{html.escape(clase, quote=True)}" '
+        f'href="{html.escape(href, quote=True)}" '
         f'target="_self">{escapar(texto)}</a>'
     )
+
+
+def unir_html(*partes):
+    """Une fragmentos ya seguros y conserva la marca HTMLSeguro."""
+    return HTMLSeguro("".join(str(parte) for parte in partes))
 
 
 def enlace_menu(texto, page, page_actual):
@@ -103,11 +126,14 @@ def well_nuevo(texto, page):
 
 
 def tabla(columnas, filas):
-    """Tabla HTML. Cada celda de `filas` ya debe venir escapada o ser HTML seguro."""
+    """Tabla HTML. Las celdas se escapan salvo que sean HTMLSeguro."""
     encabezado = "".join(f"<th>{escapar(columna)}</th>" for columna in columnas)
     cuerpo = []
     for fila in filas:
-        celdas = "".join(f"<td>{celda}</td>" for celda in fila)
+        celdas = "".join(
+            f"<td>{celda if isinstance(celda, HTMLSeguro) else escapar(celda)}</td>"
+            for celda in fila
+        )
         cuerpo.append(f"<tr>{celdas}</tr>")
     return (
         '<table class="tabla-datos"><thead><tr>'

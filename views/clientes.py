@@ -6,7 +6,6 @@ from controllers import clientes_controller as ctrl
 from controllers.comun import ErrorBD
 from views.componentes import (
     enlace,
-    escapar,
     flash,
     ir_a,
     mostrar_flash,
@@ -15,14 +14,22 @@ from views.componentes import (
     tabla_detalle,
     texto_campo,
     titulo,
+    unir_html,
     url,
     well_nuevo,
 )
 
 
-def render():
+def render(solo_lectura=False):
     accion = param("accion", "lista")
     id_param = param("id")
+
+    if solo_lectura and accion != "lista":
+        st.error(
+            "Tu rol solo permite consultar. No puedes crear, editar ni eliminar."
+        )
+        _lista(solo_lectura=True)
+        return
 
     if accion == "nuevo":
         _formulario()
@@ -39,7 +46,7 @@ def render():
         else:
             _confirmar(id_cliente)
     else:
-        _lista()
+        _lista(solo_lectura)
 
 
 def _leer_id(valor):
@@ -57,10 +64,13 @@ def _no_encontrado():
     )
 
 
-def _lista():
+def _lista(solo_lectura=False):
     mostrar_flash()
     titulo("Lista de Clientes")
-    well_nuevo("NUEVO", "clientes")
+    if solo_lectura:
+        st.info("Modo consulta: tu rol no puede modificar registros.")
+    else:
+        well_nuevo("NUEVO", "clientes")
 
     try:
         clientes = ctrl.listar_clientes()
@@ -74,26 +84,29 @@ def _lista():
 
     filas = []
     for cliente in clientes:
-        acciones = (
-            enlace(
-                "Editar",
-                url("clientes", accion="editar", id=cliente["IdCliente"]),
-                "btn btn-info",
+        if solo_lectura:
+            acciones = ""
+        else:
+            acciones = unir_html(
+                enlace(
+                    "Editar",
+                    url("clientes", accion="editar", id=cliente["IdCliente"]),
+                    "btn btn-info",
+                ),
+                " ",
+                enlace(
+                    "Eliminar",
+                    url("clientes", accion="eliminar", id=cliente["IdCliente"]),
+                    "btn btn-danger",
+                ),
             )
-            + " "
-            + enlace(
-                "Eliminar",
-                url("clientes", accion="eliminar", id=cliente["IdCliente"]),
-                "btn btn-danger",
-            )
-        )
         filas.append(
             [
-                escapar(cliente["IdCliente"]),
-                escapar(cliente.get("StrNombre")),
-                escapar(cliente.get("NumDocumento")),
-                escapar(cliente.get("StrTelefono")),
-                escapar(cliente.get("StrEmail")),
+                cliente["IdCliente"],
+                cliente.get("StrNombre"),
+                cliente.get("NumDocumento"),
+                cliente.get("StrTelefono"),
+                cliente.get("StrEmail"),
                 acciones,
             ]
         )

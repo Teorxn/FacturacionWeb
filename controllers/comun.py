@@ -13,12 +13,22 @@ from models.db import ErrorBD
 
 PATRON_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
+# Se eliminan caracteres de control (incluido el byte nulo) para evitar
+# entradas raras que luego se muestren en HTML o lleguen al driver de MySQL.
+CARACTERES_CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
 
 def texto(valor):
     """Convierte None a '' y recorta espacios (equivale al null-coalescing)."""
     if valor is None:
         return ""
-    return str(valor).strip()
+    limpio = CARACTERES_CONTROL.sub("", str(valor))
+    return limpio.strip()
+
+
+def demasiado_largo(valor, maximo):
+    """True si el texto supera el largo permitido por la columna."""
+    return len(texto(valor)) > int(maximo)
 
 
 def email_valido(valor):
@@ -70,7 +80,9 @@ def fecha_hora_actual():
 __all__ = [
     "ErrorBD",
     "PATRON_EMAIL",
+    "CARACTERES_CONTROL",
     "texto",
+    "demasiado_largo",
     "email_valido",
     "es_entero",
     "entero_o_none",

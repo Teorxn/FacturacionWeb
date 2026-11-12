@@ -9,6 +9,7 @@ import mysql.connector
 from config import USUARIO_CLIENTE
 from controllers.comun import (
     ErrorBD,
+    demasiado_largo,
     email_valido,
     entero_o_none,
     fecha_hora_actual,
@@ -41,14 +42,26 @@ def validar_cliente(datos):
 
     if texto(datos.get("StrNombre")) == "":
         errores["StrNombre"] = "El nombre es obligatorio."
+    elif demasiado_largo(datos.get("StrNombre"), 55):
+        errores["StrNombre"] = "El nombre no puede superar 55 caracteres."
 
     correo = texto(datos.get("StrEmail"))
     if correo and not email_valido(correo):
         errores["StrEmail"] = "El correo no tiene un formato válido."
+    elif demasiado_largo(correo, 50):
+        errores["StrEmail"] = "El correo no puede superar 50 caracteres."
 
     documento = texto(datos.get("NumDocumento"))
     if documento and not documento.isdigit():
         errores["NumDocumento"] = "El documento debe ser numérico."
+    elif demasiado_largo(documento, 20):
+        errores["NumDocumento"] = "El documento no puede superar 20 dígitos."
+
+    if demasiado_largo(datos.get("StrDireccion"), 70):
+        errores["StrDireccion"] = "La dirección no puede superar 70 caracteres."
+
+    if demasiado_largo(datos.get("StrTelefono"), 30):
+        errores["StrTelefono"] = "El teléfono no puede superar 30 caracteres."
 
     return errores
 

@@ -77,6 +77,18 @@ CSS = """
         padding: 5px 14px;
         font-size: 13px;
     }
+    .topbar .usuario {
+        color: #fff;
+        background: rgba(255, 255, 255, .16);
+        border: 1px solid rgba(255, 255, 255, .35);
+        border-radius: 20px;
+        padding: 5px 14px;
+        font-size: 13px;
+        max-width: 280px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
 
     /* ---------------- Menú lateral ---------------- */
     [data-testid="stSidebar"] {
@@ -254,6 +266,32 @@ CSS = """
         color: var(--gris);
         font-size: 12px;
         text-align: center;
+    }
+
+    /* ---------------- Login ---------------- */
+    .login-marca {
+        text-align: center;
+        color: var(--morado-oscuro);
+        font-weight: 800;
+        letter-spacing: 3px;
+        font-size: 30px;
+        margin-top: 12vh;
+    }
+    .login-subtitulo {
+        text-align: center;
+        color: var(--gris);
+        font-size: 14px;
+        margin: 4px 0 18px 0;
+    }
+    .login-pie {
+        text-align: center;
+        color: var(--gris);
+        font-size: 12px;
+        margin-top: 14px;
+    }
+    .separador-sidebar {
+        border-top: 1px solid var(--lavanda-borde);
+        margin: 16px 0 12px 0;
     }
 </style>
 """

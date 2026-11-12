@@ -8,3 +8,8 @@ font = "sans serif"
 
 [browser]
 gatherUsageStats = false
+
+[server]
+# Streamlit ya protege contra XSRF por defecto; se deja explícito.
+enableXsrfProtection = true
+enableCORS = true

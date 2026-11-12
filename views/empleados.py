@@ -6,7 +6,6 @@ from controllers import empleados_controller as ctrl
 from controllers.comun import ErrorBD
 from views.componentes import (
     enlace,
-    escapar,
     fecha_campo,
     flash,
     formatear_fecha,
@@ -17,14 +16,22 @@ from views.componentes import (
     tabla_detalle,
     texto_campo,
     titulo,
+    unir_html,
     url,
     well_nuevo,
 )
 
 
-def render():
+def render(solo_lectura=False):
     accion = param("accion", "lista")
     id_param = param("id")
+
+    if solo_lectura and accion != "lista":
+        st.error(
+            "Tu rol solo permite consultar. No puedes crear, editar ni eliminar."
+        )
+        _lista(solo_lectura=True)
+        return
 
     if accion == "nuevo":
         _formulario()
@@ -41,7 +48,7 @@ def render():
         else:
             _confirmar(id_empleado)
     else:
-        _lista()
+        _lista(solo_lectura)
 
 
 def _leer_id(valor):
@@ -59,10 +66,13 @@ def _no_encontrado():
     )
 
 
-def _lista():
+def _lista(solo_lectura=False):
     mostrar_flash()
     titulo("ADMON EMPLEADOS")
-    well_nuevo("+Nuevo", "empleados")
+    if solo_lectura:
+        st.info("Modo consulta: tu rol no puede modificar registros.")
+    else:
+        well_nuevo("+Nuevo", "empleados")
 
     try:
         empleados = ctrl.listar_empleados()
@@ -76,25 +86,28 @@ def _lista():
 
     filas = []
     for empleado in empleados:
-        acciones = (
-            enlace(
-                "Editar",
-                url("empleados", accion="editar", id=empleado["IdEmpleado"]),
-                "btn btn-info",
+        if solo_lectura:
+            acciones = ""
+        else:
+            acciones = unir_html(
+                enlace(
+                    "Editar",
+                    url("empleados", accion="editar", id=empleado["IdEmpleado"]),
+                    "btn btn-info",
+                ),
+                " ",
+                enlace(
+                    "Borrar",
+                    url("empleados", accion="eliminar", id=empleado["IdEmpleado"]),
+                    "btn btn-danger",
+                ),
             )
-            + " "
-            + enlace(
-                "Borrar",
-                url("empleados", accion="eliminar", id=empleado["IdEmpleado"]),
-                "btn btn-danger",
-            )
-        )
         filas.append(
             [
-                escapar(empleado.get("strNombre")),
-                escapar(empleado.get("NumDocumento")),
-                escapar(empleado.get("StrTelefono")),
-                escapar(empleado.get("StrEmail")),
+                empleado.get("strNombre"),
+                empleado.get("NumDocumento"),
+                empleado.get("StrTelefono"),
+                empleado.get("StrEmail"),
                 acciones,
             ]
         )

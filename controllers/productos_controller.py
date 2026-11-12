@@ -6,6 +6,7 @@ from config import USUARIO_PRODUCTO
 from controllers.comun import (
     ErrorBD,
     decimal_o_none,
+    demasiado_largo,
     entero_o_none,
     fecha_hora_actual,
     texto,
@@ -37,6 +38,18 @@ def validar_producto(datos):
 
     if texto(datos.get("StrNombreProducto")) == "":
         errores["StrNombreProducto"] = "El nombre es obligatorio."
+    elif demasiado_largo(datos.get("StrNombreProducto"), 200):
+        errores["StrNombreProducto"] = (
+            "El nombre no puede superar 200 caracteres."
+        )
+
+    if demasiado_largo(datos.get("StrDescripcion"), 2000):
+        errores["StrDescripcion"] = (
+            "La descripción no puede superar 2000 caracteres."
+        )
+
+    if demasiado_largo(datos.get("StrCategoria"), 100):
+        errores["StrCategoria"] = "La categoría no puede superar 100 caracteres."
 
     precio = datos.get("NumPrecio")
     if precio not in (None, ""):

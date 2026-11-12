@@ -9,7 +9,6 @@ from controllers import productos_controller as ctrl
 from controllers.comun import ErrorBD
 from views.componentes import (
     enlace,
-    escapar,
     flash,
     formatear_activo,
     formatear_dinero,
@@ -20,14 +19,22 @@ from views.componentes import (
     tabla_detalle,
     texto_campo,
     titulo,
+    unir_html,
     url,
     well_nuevo,
 )
 
 
-def render():
+def render(solo_lectura=False):
     accion = param("accion", "lista")
     id_param = param("id")
+
+    if solo_lectura and accion != "lista":
+        st.error(
+            "Tu rol solo permite consultar. No puedes crear, editar ni eliminar."
+        )
+        _lista(solo_lectura=True)
+        return
 
     if accion == "nuevo":
         _formulario()
@@ -44,7 +51,7 @@ def render():
         else:
             _confirmar(id_producto)
     else:
-        _lista()
+        _lista(solo_lectura)
 
 
 def _leer_id(valor):
@@ -62,10 +69,13 @@ def _no_encontrado():
     )
 
 
-def _lista():
+def _lista(solo_lectura=False):
     mostrar_flash()
     titulo("Lista de Productos")
-    well_nuevo("NUEVO", "productos")
+    if solo_lectura:
+        st.info("Modo consulta: tu rol no puede modificar registros.")
+    else:
+        well_nuevo("NUEVO", "productos")
 
     try:
         productos = ctrl.listar_productos()
@@ -79,26 +89,29 @@ def _lista():
 
     filas = []
     for producto in productos:
-        acciones = (
-            enlace(
-                "Editar",
-                url("productos", accion="editar", id=producto["IdProducto"]),
-                "btn btn-info",
+        if solo_lectura:
+            acciones = ""
+        else:
+            acciones = unir_html(
+                enlace(
+                    "Editar",
+                    url("productos", accion="editar", id=producto["IdProducto"]),
+                    "btn btn-info",
+                ),
+                " ",
+                enlace(
+                    "Eliminar",
+                    url("productos", accion="eliminar", id=producto["IdProducto"]),
+                    "btn btn-danger",
+                ),
             )
-            + " "
-            + enlace(
-                "Eliminar",
-                url("productos", accion="eliminar", id=producto["IdProducto"]),
-                "btn btn-danger",
-            )
-        )
         filas.append(
             [
-                escapar(producto["IdProducto"]),
-                escapar(producto.get("StrNombreProducto")),
-                escapar(producto.get("StrCategoria")),
+                producto["IdProducto"],
+                producto.get("StrNombreProducto"),
+                producto.get("StrCategoria"),
                 formatear_dinero(producto.get("NumPrecio")),
-                escapar(producto.get("NumStock")),
+                producto.get("NumStock"),
                 formatear_activo(producto.get("BitActivo")),
                 acciones,
             ]

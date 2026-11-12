@@ -18,12 +18,14 @@ Tres CRUD completos, con **listar, crear, editar y eliminar**:
 
 Además:
 
-- Barra superior oscura con **FACTURACION**, Inicio, Acerca, Ayuda, Contacto y un **Login** solo visual.
+- **Login real con JWT** y permisos por rol (`admin`, `vendedor`, `consulta`).
+- Barra superior oscura con **FACTURACION**, Inicio, Acerca, Ayuda, Contacto y el usuario/rol de la sesión.
 - Menú lateral con fondo `#345863` y los grupos **TABLAS**, **FACTURAS** y **SEGURIDAD**.
 - Pie de página con el texto **Footer Text**.
 - Páginas informativas: Inicio, Acerca, Ayuda y Contacto.
-- Entradas sin funcionalidad (Categorias, facturas, Informes, Roles, Seguridad) que muestran **“En construcción”**.
-- Validación del lado del servidor, SQL parametrizado y confirmación antes de eliminar.
+- Entradas sin funcionalidad (Categorias, facturas, Informes, Roles) que muestran **“En construcción”**.
+- Pantalla **Seguridad** con el estado de la sesión y los controles aplicados.
+- Validación del lado del servidor, SQL parametrizado, escape de HTML y confirmación antes de eliminar.
 
 ---
 
@@ -159,6 +161,7 @@ Para detenerla: `Ctrl + C` en la terminal.
 facturacion_streamlit/
 ├─ app.py
 ├─ config.py
+├─ configurar_auth.py
 ├─ probar_conexion.py
 ├─ requirements.txt
 ├─ README.md
@@ -171,18 +174,22 @@ facturacion_streamlit/
 │   └─ secrets.toml          (local, no se entrega)
 ├─ models/
 │   ├─ db.py
+│   ├─ usuario.py
 │   ├─ cliente.py
 │   ├─ producto.py
 │   ├─ empleado.py
 │   └─ rol.py
 ├─ controllers/
 │   ├─ comun.py
+│   ├─ auth_controller.py
 │   ├─ clientes_controller.py
 │   ├─ productos_controller.py
 │   └─ empleados_controller.py
 ├─ views/
 │   ├─ estilos.py
 │   ├─ componentes.py
+│   ├─ login.py
+│   ├─ seguridad.py
 │   ├─ inicio.py
 │   ├─ acerca.py
 │   ├─ ayuda.py
@@ -194,17 +201,19 @@ facturacion_streamlit/
 └─ tests/
     ├─ test_validaciones.py
     ├─ test_modelos_bd.py
+    ├─ test_seguridad.py
     └─ test_app.py
 ```
 
 ### 7.1 `app.py` — la entrada y el layout
 
-Es lo primero que corre. Hace cuatro cosas:
+Es lo primero que corre. Hace cinco cosas:
 
 1. Configura la página (`st.set_page_config`).
 2. Inyecta el CSS de `views/estilos.py`.
-3. Dibuja la barra superior, el menú lateral y el pie.
-4. Decide qué vista mostrar según el parámetro `page` de la URL.
+3. Valida el JWT de la sesión; si no hay sesión, muestra el login y se detiene.
+4. Dibuja la barra superior, el menú lateral (según el rol) y el pie.
+5. Decide qué vista mostrar según el parámetro `page` de la URL y comprueba el permiso del rol.
 
 La navegación usa enlaces como `?page=clientes` y `?page=empleados`. **[COMPLEMENTO]** Se eligió así en lugar de `st.navigation` porque permite controlar el HTML del menú y los colores con más libertad.
 
@@ -325,13 +334,90 @@ Cada uno tiene una función `render()` que decide entre cuatro pantallas:
 
 - `test_validaciones.py`: 18 pruebas de validaciones, conversiones y normalización, sin base de datos.
 - `test_modelos_bd.py`: prueba INSERT, UPDATE, DELETE y SELECT reales contra MySQL, pero dentro de una transacción con **rollback**, así no deja datos.
-- `test_app.py`: abre las pantallas con Streamlit `AppTest` y verifica que no haya excepciones.
+- `test_seguridad.py`: 27 pruebas de contraseñas, JWT, permisos, XSS, SQL injection y bloqueo por intentos.
+- `test_app.py`: 14 pruebas con Streamlit `AppTest` para el login, las pantallas y el modo solo lectura, verificando que no haya excepciones.
 
 Para correrlas:
 
 ```powershell
 python -m unittest discover -s tests -v
 ```
+
+### 7.7 Login, JWT y seguridad
+
+**[COMPLEMENTO]** El PDF no pedía login, pero se agregó para proteger los CRUD y demostrar buenas prácticas.
+
+| Archivo | Responsabilidad |
+|---|---|
+| `models/usuario.py` | Lee `[auth.users.*]` de `secrets.toml`; genera y verifica hashes PBKDF2. |
+| `controllers/auth_controller.py` | Crea/valida el JWT, bloquea intentos fallidos y define los permisos por rol. |
+| `views/login.py` | Formulario de usuario y contraseña. |
+| `views/seguridad.py` | Muestra la sesión activa, el rol y los controles aplicados. |
+| `configurar_auth.py` | Crea `[auth]`, agrega usuarios y genera hashes. |
+
+#### Configurar el primer usuario
+
+```powershell
+python configurar_auth.py init
+```
+
+Eso agrega a `secrets.toml`:
+
+```toml
+[auth]
+jwt_secret = "..."
+token_minutos = 30
+max_intentos = 5
+bloqueo_minutos = 5
+issuer = "facturacion-streamlit"
+
+[auth.users."admin"]
+nombre = "Administrador"
+rol = "admin"
+activo = true
+password_hash = "pbkdf2_sha256$600000$...$..."
+```
+
+La contraseña se muestra **una sola vez** en la terminal. No se guarda en texto plano.
+
+Para agregar otro usuario:
+
+```powershell
+python configurar_auth.py agregar vendedor vendedor
+python configurar_auth.py hash "MiClaveSegura123"
+```
+
+#### Cómo funciona el JWT
+
+1. El usuario escribe sus credenciales en `views/login.py`.
+2. `auth_controller.iniciar_sesion()` busca el usuario y verifica el hash.
+3. Si es correcto, `crear_token()` firma un JWT con HS256 y lo guarda en `st.session_state`.
+4. En cada recarga, `sesion_actual()` valida firma, expiración, emisor, `iat`, `nbf` y que el usuario siga activo con el mismo rol.
+5. Si el token no sirve, se borra la sesión y se vuelve al login.
+
+El token **no** se guarda en la URL ni en una cookie legible por JavaScript. Al recargar el navegador se pierde la sesión, lo cual es intencional.
+
+#### Roles y permisos
+
+| Rol | Páginas |
+|---|---|
+| `admin` | Todas |
+| `vendedor` | Inicio, Acerca, Ayuda, Contacto, Clientes, Productos, Categorías, Facturas, Informes |
+| `consulta` | Inicio, Acerca, Ayuda, Contacto, Clientes, Productos, Informes |
+
+`app.py` comprueba `auth.tiene_permiso(rol, page)` **antes** de dibujar la vista. Si alguien escribe `?page=empleados` con rol `consulta`, recibe “No tienes permiso para ver esta sección.”, aunque oculte el enlace del menú.
+
+#### Defensas aplicadas
+
+- **SQL injection:** `%s` + tuplas en todos los modelos; hay pruebas con un payload `1 OR 1=1; DROP TABLE ...`.
+- **XSS:** `escapar()` usa `html.escape`; `tabla()` escapa celdas por defecto y solo respeta `HTMLSeguro` creado por la app.
+- **Fuerza bruta:** tras `max_intentos` fallos se bloquea el usuario `bloqueo_minutos` minutos.
+- **Contraseñas:** PBKDF2-HMAC-SHA256 con 600 000 iteraciones, sal aleatoria y `hmac.compare_digest`.
+- **CSRF:** no hay endpoints HTTP propios de escritura; las acciones pasan por formularios y botones de Streamlit con XSRF activo.
+- **Secretos:** `secrets.toml` está en `.gitignore` y `empaquetar.ps1` lo excluye.
+- **Entradas:** se eliminan caracteres de control y se valida el largo máximo en el servidor.
+
+> El bloqueo de intentos es memoria del proceso. Para un despliegue con varios servidores haría falta Redis o un WAF.
 
 ---
 
@@ -540,7 +626,13 @@ Se usó otra tecnología porque el profesor lo autorizó. **[COMPLEMENTO: equiva
 
 ### Seguridad básica
 
+- **Autenticación:** login obligatorio antes de ver cualquier pantalla; el JWT se valida en cada recarga.
+- **Autorización:** cada rol tiene una lista de páginas permitidas y se comprueba en el servidor.
 - **Inyección SQL:** se evita con consultas parametrizadas (`%s` + tupla).
+- **XSS:** todo texto que llega a HTML se escapa; las tablas escapan sus celdas por defecto.
+- **CSRF:** las acciones de escritura usan formularios/botones de Streamlit con XSRF activo, no enlaces GET.
+- **Fuerza bruta:** bloqueo temporal después de varios intentos fallidos.
+- **Contraseñas:** solo se guardan hashes PBKDF2 con sal; nunca texto plano.
 - **Borrado accidental:** se evita con pantalla de confirmación.
 - **Credenciales:** viven en `secrets.toml`, fuera del código y del `.zip`.
 - **`UPDATE`/`DELETE` sin `WHERE`:** aquí siempre llevan el id.
@@ -560,6 +652,11 @@ Se usó otra tecnología porque el profesor lo autorizó. **[COMPLEMENTO: equiva
 | No deja borrar un empleado | Está ligado a una factura o a seguridad | Mensaje claro; borrar uno sin vínculos |
 | `ModuleNotFoundError: No module named 'streamlit'` | No se activó el entorno o no se instalaron dependencias | Activar `.venv` y `pip install -r requirements.txt` |
 | `StreamlitSecretNotFoundError` o “Falta la configuración [mysql]” | No existe `.streamlit/secrets.toml` | Copiar `secrets.toml.example` y completar la contraseña |
+| “Falta la sección [auth]” | No se ejecutó la configuración del login | `python configurar_auth.py init` |
+| “Usuario o contraseña incorrectos” | Credenciales mal escritas | Revisar usuario y contraseña; el mensaje no revela si el usuario existe |
+| “Demasiados intentos fallidos” | Se superó `max_intentos` | Esperar `bloqueo_minutos` o reiniciar la app para limpiar la memoria |
+| El login no aparece / la app se queda en blanco | Error al leer `[auth]` o JWT inválido | Revisar la terminal y ejecutar `python configurar_auth.py validar` |
+| “No tienes permiso para ver esta sección” | El rol no tiene esa página | Entrar con un rol adecuado o ajustar `PERMISOS` en `auth_controller.py` |
 | `No se pudo conectar a MySQL` | Red, firewall, servidor o contraseña | Revisar `probar_conexion.py`, la red y el puerto 3306 |
 | `No module named 'tomli'` en Python 3.10 | Faltan dependencias | `pip install -r requirements.txt` |
 | El puerto 8501 está ocupado | Otra app usa el puerto | `streamlit run app.py --server.port 8502` |
@@ -591,6 +688,10 @@ Se usó otra tecnología porque el profesor lo autorizó. **[COMPLEMENTO: equiva
 | Mensajes no definidos en el PDF: “El documento es obligatorio.”, “El documento debe ser numérico.”, “El precio no puede ser negativo.”, “El stock no puede ser negativo.”, “No hay empleados registrados.” y las confirmaciones de borrado de Empleados/Productos | El PDF no trae esos textos; se usan mensajes claros en español, coherentes con los de Clientes |
 | Bandera `FOUND_ROWS` en MySQL | Permite que un `UPDATE` sin cambios reales siga contando como registro encontrado |
 | `probar_conexion.py` lee `secrets.toml` | Evita credenciales escritas en el código |
+| `models/usuario.py`, `controllers/auth_controller.py`, `views/login.py` y `views/seguridad.py` | Login con JWT, contraseñas con hash y permisos por rol |
+| `configurar_auth.py` | Genera `[auth]`, hashes y usuarios sin editar TOML a mano |
+| `PyJWT` en `requirements.txt` | Firma y validación del token JWT |
+| `tests/test_seguridad.py` | Pruebas de contraseñas, JWT, permisos, XSS y SQL injection |
 | Textos y etiquetas de Productos | El PDF no los define; se usan textos en español coherentes |
 | Páginas “En construcción” | El PDF deja esas entradas sin pantalla |
 
@@ -657,9 +758,11 @@ Existen **dos tablas distintas**:
 - Compilación de todos los archivos Python (`python -m compileall`).
 - **18 pruebas de validaciones** (`tests/test_validaciones.py`): nombre obligatorio, correo, documento numérico, precio/stock, conversiones y normalización de datos (usuario de auditoría, fechas y valores NULL).
 - **3 pruebas de CRUD real contra MySQL** (`tests/test_modelos_bd.py`): INSERT, SELECT, UPDATE y DELETE de clientes, empleados y productos. Se hicieron dentro de una transacción con **rollback**, así que no quedaron datos de prueba. Se verificó que los conteos seguían en 18/18/4 y que no había registros `ZZ ...`.
-- **9 pruebas de pantallas** (`tests/test_app.py`): Inicio, listas, formularios de nuevo, confirmación de eliminación y validación de nombre obligatorio, sin excepciones.
+- **27 pruebas de seguridad** (`tests/test_seguridad.py`): hashes, JWT alterado/expirado, algoritmo `none`, permisos por rol, XSS, SQL injection y bloqueo por intentos.
+- **14 pruebas de pantallas** (`tests/test_app.py`): login sin sesión, token inválido, Inicio, listas, formularios de nuevo, confirmación de eliminación, validación de nombre obligatorio, pantalla de Seguridad y modo solo lectura, sin excepciones.
 - La app carga con `AppTest` usando la conexión real.
 - El servidor Streamlit arrancó con `streamlit run app.py --server.headless true --server.port 8502`; `/_stcore/health` respondió **200 ok** y la página principal respondió **200**.
+- Se probó el flujo completo de login, cierre de sesión y rechazo de una página sin permiso (`consulta` intentando abrir Empleados).
 
 ### No probado
 

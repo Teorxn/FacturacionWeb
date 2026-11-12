@@ -7,8 +7,10 @@ Marca cada punto antes de enviar.
 ### Proyecto
 
 - [ ] `python probar_conexion.py` conecta y muestra las tablas.
+- [ ] `python configurar_auth.py validar` confirma que `[auth]` está bien.
 - [ ] `streamlit run app.py` abre la app sin errores.
-- [ ] La barra superior muestra **FACTURACION**, Inicio, Acerca, Ayuda, Contacto y Login.
+- [ ] Sin sesión, la app muestra el **login** y no deja ver los CRUD.
+- [ ] La barra superior muestra **FACTURACION**, Inicio, Acerca, Ayuda, Contacto y el usuario/rol de la sesión.
 - [ ] El menú lateral tiene los grupos **TABLAS**, **FACTURAS** y **SEGURIDAD**.
 - [ ] El pie muestra **Footer Text**.
 - [ ] Clientes: lista, nuevo, editar y eliminar funcionan.
@@ -17,7 +19,9 @@ Marca cada punto antes de enviar.
 - [ ] Las validaciones muestran mensajes en rojo.
 - [ ] La confirmación de borrado aparece antes de eliminar.
 - [ ] Las páginas Inicio, Acerca, Ayuda y Contacto abren.
-- [ ] Categorias, facturas, Informes, Roles y Seguridad muestran “En construcción”.
+- [ ] Categorias, facturas, Informes y Roles muestran “En construcción”.
+- [ ] La pantalla **Seguridad** muestra la sesión, el rol y los controles aplicados.
+- [ ] Un usuario con rol `consulta` recibe “No tienes permiso” al abrir Empleados.
 
 ### Archivo `.zip`
 
@@ -43,7 +47,8 @@ Debe aparecer solo `secrets.toml.example`.
 - [ ] Se ve la **consulta, el ingreso, la modificación y el retiro** de Productos.
 - [ ] Se explica el código en orden **Modelo → Controlador → Vista**.
 - [ ] Se menciona que se usó Python + Streamlit con autorización del profesor.
-- [ ] No se muestra la contraseña de la base de datos.
+- [ ] Se muestra el login, el cierre de sesión y la pantalla de Seguridad.
+- [ ] No se muestra la contraseña de la base de datos ni la contraseña del usuario.
 - [ ] El link del video quedó en el formulario de entrega.
 
 ### Recomendaciones de grabación
